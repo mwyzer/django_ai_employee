@@ -1,0 +1,62 @@
+# Django
+*.log
+*.pot
+*.pyc
+*.py[cod]
+*$py.class
+__pycache__/
+
+# Database
+db.sqlite3
+db.sqlite3-journal
+
+# Virtual environment
+.env
+env/
+env.bak/
+venv/
+venv.bak/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+parts/
+sdist/
+wheels/
+develop-eggs/
+.installed.cfg
+__pypackages__/
+
+# Testing / Coverage
+htmlcov/
+.coverage
+.coverage.*
+.pytest_cache/
+.mypy_cache/
+
+# Jupyter
+.ipynb_checkpoints
+
+# ChromaDB vector store
+chroma_db/
+
+# Collected static (collectstatic output)
+static/
+staticfiles/
