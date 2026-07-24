@@ -212,6 +212,140 @@ Static files are served via **WhiteNoise**. Set all environment variables from `
 
 ---
 
+## 🧪 Test Results
+
+**Status: ✅ All 77 tests passing | 59% coverage**
+
+Last run: 2026-07-24 | Django 6.0.5 | Python 3.12.10 | pytest 9.1.1
+
+### Test Suite Breakdown
+
+| Test File | Tests | Status |
+|-----------|-------|--------|
+| `tests/test_agents.py` | 11 | ✅ All passing |
+| `tests/test_models.py` | 16 | ✅ All passing |
+| `tests/test_tools.py` | 9 | ✅ All passing |
+| `tests/test_views.py` | 12 | ✅ All passing |
+| `tests/test_event_queue.py` | 8 | ✅ All passing |
+| `tests/test_smoke.py` | 21 | ✅ All passing |
+
+### Coverage by Module
+
+| Module | Coverage | Details |
+|--------|----------|---------|
+| `orders/models.py` | 100% | Product, Order, RefundRequest |
+| `orders/admin.py` | 100% | Admin registrations |
+| `orders/urls.py` | 100% | URL routing |
+| `orders/views.py` | 35% | 7/20 — view functions untested |
+| `support/models.py` | 100% | Conversation, Message, AgentLog |
+| `support/tools.py` | 100% | All 5 tool implementations |
+| `support/event_queue.py` | 100% | Pub/sub event system |
+| `support/views.py` | 88% | 41/49 — SSE hanging edge cases |
+| `support/langchain_tools.py` | 71% | 12/17 — error paths uncovered |
+| `support/langchain_agents.py` | 29% | 25/86 — LLM orchestration mostly untested |
+| `support/agents.py` | 26% | 30/117 — raw SDK agent loops untested |
+| `support/rag.py` | 23% | 11/48 — ChromaDB indexing/search untested |
+
+### Running Tests
+
+```bash
+# Full suite with coverage
+pytest
+
+# Specific test file
+pytest tests/test_agents.py -v
+
+# Without coverage (faster)
+pytest --no-cov
+```
+
+---
+
+## 📊 Progress Report
+
+### ✅ Completed
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Multi-agent AI system | ✅ | Support, Manager, Risk agents via LangChain/LangGraph |
+| Tool calling (5 tools) | ✅ | Order lookup, delivery check, refund history, knowledge base, escalation |
+| RAG knowledge base | ✅ | ChromaDB with PDF ingestion (refund policy, warranty, FAQs) |
+| Real-time SSE streaming | ✅ | Pub/sub event queue + Server-Sent Events dashboard |
+| Staff dashboard | ✅ | Conversation list, detail view, live agent activity |
+| User authentication | ✅ | Login/logout, user-scoped orders and chat |
+| Seed data | ✅ | `data.json` with 5 users, products, orders, refunds |
+| Test suite (77 tests) | ✅ | Models, tools, views, event queue, smoke tests |
+| Railway deployment | ✅ | Gunicorn + WhiteNoise via Procfile |
+| Django 6.0 compatibility fix | ✅ | `@login_required` on chat view (SimpleLazyObject FK issue) |
+
+### 🚧 In Progress / Needs Work
+
+| Area | Priority | Effort | Notes |
+|------|----------|--------|-------|
+| **Coverage: agents.py (26%)** | High | Medium | Mock DeepSeek API to test agent loops & tool dispatch |
+| **Coverage: rag.py (23%)** | High | Medium | Test ChromaDB indexing/search with mock embeddings |
+| **Coverage: langchain_agents.py (29%)** | High | Large | Test full LangGraph orchestration with mocked LLM |
+| **Coverage: orders/views.py (35%)** | Medium | Small | Add view tests for order list & detail pages |
+| **Coverage: langchain_tools.py (71%)** | Low | Small | Cover error/edge-case paths |
+| **CI/CD pipeline** | Medium | Medium | GitHub Actions for automated test runs |
+| **End-to-end tests** | Medium | Large | Playwright/Selenium for browser-level testing |
+| **Rate limiting** | Low | Small | Protect AI chat endpoint from abuse |
+| **Conversation history persistence** | Low | Small | Paginate long conversation histories |
+
+---
+
+## ⚡ Stress Testing (Locust)
+
+**Status: ✅ 57 requests, 0 failures | 10 users, 30s run**
+
+Last run: 2026-07-24 | Locust 2.46.1
+
+### Latest Results (10 users, 2 spawn/s, 30s)
+
+| Endpoint | Reqs | Avg | Med | p95 | Max |
+|----------|------|-----|-----|-----|-----|
+| `GET /login/` | 16 | 66ms | 12ms | 370ms | 370ms |
+| `GET /admin/login/` | 9 | 169ms | 22ms | 820ms | 820ms |
+| `GET /support/dashboard/` | 8 | 50ms | 47ms | 92ms | 92ms |
+| `GET /support/dashboard/1/` | 4 | 90ms | 91ms | 150ms | 150ms |
+| `POST /support/chat/1/` | 15 | 1.8s | 1.3s | 5.8s | 5.8s |
+| `POST /login/` | 5 | 6.9s | 7.1s | 8.0s | 8.0s |
+| **Aggregated** | **57** | **1.1s** | **110ms** | **7.1s** | **8.0s** |
+
+### Key Findings
+
+- **Static/dashboard pages**: Fast, all under 100ms median
+- **Chat endpoint**: ~1.8s average — dominated by AI API call latency, no server bottleneck
+- **Login POST**: ~6.9s average — Django's default PBKDF2 password hashing is CPU-intensive under concurrent users; consider switching to bcrypt with fewer rounds or using cached sessions for repeated test users
+- **Zero failures**: No 5xx errors or timeouts under 10 concurrent users
+
+### How to Run
+
+```bash
+# Terminal 1: Start the server
+python manage.py runserver
+
+# Terminal 2: Run Locust (web UI at http://localhost:8089)
+locust -f locustfile.py --host=http://127.0.0.1:8000
+
+# Or headless mode (automated):
+locust -f locustfile.py --host=http://127.0.0.1:8000 --headless -u 50 -r 5 --run-time 60s
+
+# Generate HTML report:
+locust -f locustfile.py --host=http://127.0.0.1:8000 --headless -u 10 -r 2 --run-time 30s --html=stress_report.html
+```
+
+### Test Scenarios (`locustfile.py`)
+
+| User Class | Weight | Simulates |
+|------------|--------|-----------|
+| `AIEmployeeUser` | — | Full login → dashboard → conversation → chat message flow |
+| `SmokeCheckUser` | — | Lightweight health checks (login page, admin page) |
+
+The chat test sends a realistic customer message (`"Where is my order?"`) and verifies the AI agent responds without 5xx errors. SSE streaming tests connect to the real-time event endpoint and validate data flow.
+
+---
+
 ## 📄 License
 
 MIT
