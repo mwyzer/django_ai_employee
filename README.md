@@ -78,8 +78,8 @@ django_ai_employees/
 
 ```bash
 # Clone the repo
-git clone https://github.com/dev-rathankumar/django_ai_employees.git
-cd django_ai_employees
+git clone https://github.com/mwyzer/django_ai_employees.git
+cd django_ai_employee
 
 # Create virtual environment
 python -m venv env
