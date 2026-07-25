@@ -57,6 +57,10 @@ htmlcov/
 # ChromaDB vector store
 chroma_db/
 
+# Project documentation & rules
+PRDs/
+rules/
+
 # Collected static (collectstatic output)
 static/
 staticfiles/
