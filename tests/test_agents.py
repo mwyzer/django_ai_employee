@@ -50,6 +50,28 @@ class TestExecuteTool:
         result = execute_tool('search_knowledge_base', {'query': 'refund policy'})
         assert result == {'result': 'Some policy text'}
 
+    @patch('support.agents.run_manager_agent')
+    def test_escalate_to_manager(self, mock_run_manager):
+        """execute_tool should route escalate_to_manager to run_manager_agent."""
+        mock_run_manager.return_value = 'Refund approved'
+        result = execute_tool(
+            'escalate_to_manager',
+            {'case_summary': 'Customer User ID: 1\nComplaint: damaged item'},
+            conversation_id=5,
+        )
+        mock_run_manager.assert_called_once_with(
+            'Customer User ID: 1\nComplaint: damaged item', 5
+        )
+        assert result == 'Refund approved'
+
+    @patch('support.agents.run_risk_agent')
+    def test_assess_fraud_risk(self, mock_run_risk):
+        """execute_tool should route assess_fraud_risk to run_risk_agent."""
+        mock_run_risk.return_value = 'Risk Level: LOW'
+        result = execute_tool('assess_fraud_risk', {'user_id': 7}, conversation_id=5)
+        mock_run_risk.assert_called_once_with(7, 5)
+        assert result == 'Risk Level: LOW'
+
 
 @pytest.mark.unit
 class TestAgentSystemPrompts:

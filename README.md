@@ -278,8 +278,8 @@ Open http://127.0.0.1:8000/login/
 | Username | Password | Role |
 |----------|----------|------|
 | `admin` | `admin123` | Superuser (staff dashboard access) |
-| `rathan` | `rathan123` | Customer (5 orders) |
-| `priya` | `priya123` | Customer (3 orders) |
+| `sheila` | `sheila123` | Customer (5 orders) |
+| `dewa` | `dewa123` | Customer (3 orders) |
 | `arjun` | `arjun123` | Customer (2 orders) |
 | `fraud_test` | `fraud123` | Customer (5 orders, high refund ratio — for fraud testing) |
 
@@ -355,20 +355,23 @@ Static files are served via **WhiteNoise**. Set all environment variables from `
 
 ## 🧪 Test Results
 
-**Status: ✅ All 77 tests passing | 59% coverage**
+**Status: ✅ All 103 tests passing | 90% coverage**
 
-Last run: 2026-07-24 | Django 6.0.5 | Python 3.12.10 | pytest 9.1.1
+Last run: 2026-08-07 | Django 6.0.5 | Python 3.12.10 | pytest 9.1.1
 
 ### Test Suite Breakdown
 
 | Test File | Tests | Status |
 |-----------|-------|--------|
-| `tests/test_agents.py` | 11 | ✅ All passing |
+| `tests/test_agents.py` | 15 | ✅ All passing |
+| `tests/test_agent_loops.py` | 10 | ✅ All passing |
+| `tests/test_langchain_agents.py` | 6 | ✅ All passing |
+| `tests/test_rag.py` | 8 | ✅ All passing |
 | `tests/test_models.py` | 16 | ✅ All passing |
-| `tests/test_tools.py` | 9 | ✅ All passing |
-| `tests/test_views.py` | 12 | ✅ All passing |
+| `tests/test_tools.py` | 11 | ✅ All passing |
+| `tests/test_views.py` | 13 | ✅ All passing |
 | `tests/test_event_queue.py` | 8 | ✅ All passing |
-| `tests/test_smoke.py` | 21 | ✅ All passing |
+| `tests/test_smoke.py` | 16 | ✅ All passing |
 
 ### Coverage by Module
 
@@ -381,11 +384,11 @@ Last run: 2026-07-24 | Django 6.0.5 | Python 3.12.10 | pytest 9.1.1
 | `support/models.py` | 100% | Conversation, Message, AgentLog |
 | `support/tools.py` | 100% | All 5 tool implementations |
 | `support/event_queue.py` | 100% | Pub/sub event system |
+| `support/agents.py` | 100% | Raw SDK agent loops fully covered, incl. manager/risk escalation chain |
+| `support/rag.py` | 100% | Chunking, PDF loading, ChromaDB search all covered |
 | `support/views.py` | 88% | 41/49 — SSE hanging edge cases |
 | `support/langchain_tools.py` | 71% | 12/17 — error paths uncovered |
-| `support/langchain_agents.py` | 29% | 25/86 — LLM orchestration mostly untested |
-| `support/agents.py` | 26% | 30/117 — raw SDK agent loops untested |
-| `support/rag.py` | 23% | 11/48 — ChromaDB indexing/search untested |
+| `support/langchain_agents.py` | 71% | 61/86 — inner `@tool`/middleware closures uncovered (only reachable via a real LangGraph tool-call loop) |
 
 ### Running Tests
 
@@ -415,20 +418,22 @@ pytest --no-cov
 | Staff dashboard | ✅ | Conversation list, detail view, live agent activity |
 | User authentication | ✅ | Login/logout, user-scoped orders and chat |
 | Seed data | ✅ | `data.json` with 5 users, products, orders, refunds |
-| Test suite (77 tests) | ✅ | Models, tools, views, event queue, smoke tests |
+| Test suite (103 tests) | ✅ | Models, tools, views, event queue, smoke, agent loops, RAG |
 | Railway deployment | ✅ | Gunicorn + WhiteNoise via Procfile |
 | Django 6.0 compatibility fix | ✅ | `@login_required` on chat view (SimpleLazyObject FK issue) |
+| Coverage: agents.py (26% → 100%) | ✅ | Mocked DeepSeek client boundary; covers all 3 loops + escalation chain + dispatcher |
+| Coverage: rag.py (23% → 100%) | ✅ | Mocked ChromaDB collection methods; chunking, PDF loading, search all covered |
+| Coverage: langchain_agents.py (29% → 71%) | ✅ | Mocked `create_agent`; outer control flow covered — inner tool/middleware closures remain untested (need a real LangGraph tool-call loop to reach) |
+| CI/CD pipeline | ✅ | GitHub Actions (`.github/workflows/tests.yml`) runs the suite on push/PR to `main` |
 
 ### 🚧 In Progress / Needs Work
 
 | Area | Priority | Effort | Notes |
 |------|----------|--------|-------|
-| **Coverage: agents.py (26%)** | High | Medium | Mock DeepSeek API to test agent loops & tool dispatch |
-| **Coverage: rag.py (23%)** | High | Medium | Test ChromaDB indexing/search with mock embeddings |
-| **Coverage: langchain_agents.py (29%)** | High | Large | Test full LangGraph orchestration with mocked LLM |
 | **Coverage: orders/views.py (35%)** | Medium | Small | Add view tests for order list & detail pages |
 | **Coverage: langchain_tools.py (71%)** | Low | Small | Cover error/edge-case paths |
-| **CI/CD pipeline** | Medium | Medium | GitHub Actions for automated test runs |
+| **Coverage: langchain_agents.py inner closures (71%)** | Low | Medium | Requires driving a real LangGraph tool-call loop or deeper mocking to reach `@tool`/`@wrap_tool_call` bodies |
+| **Coverage threshold in CI** | Low | Small | Decide on a `fail_under` floor once the new baseline (90%) has settled |
 | **End-to-end tests** | Medium | Large | Playwright/Selenium for browser-level testing |
 | **Rate limiting** | Low | Small | Protect AI chat endpoint from abuse |
 | **Conversation history persistence** | Low | Small | Paginate long conversation histories |

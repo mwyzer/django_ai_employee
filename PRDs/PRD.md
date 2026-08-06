@@ -219,10 +219,10 @@ graph TD
 | Username | Role | Purpose |
 |----------|------|---------|
 | `admin` | Superuser | Staff dashboard access |
-| `rathan` | Customer | Normal usage (5 orders) |
-| `priya` | Customer | Normal usage (3 orders) |
-| `arjun` | Customer | Normal usage (2 orders) |
-| `fraud_test` | Customer | Fraud detection testing (high refund ratio) |
+| `sheila` | Customer | Normal usage (5 orders) |
+| `dewa` | Customer | Normal usage (3 orders) |
+| `noah` | Customer | Normal usage (2 orders) |
+| `kangen` | Customer | Fraud detection testing (high refund ratio) |
 
 ---
 

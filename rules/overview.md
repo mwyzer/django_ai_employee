@@ -91,7 +91,7 @@ django_ai_employees/
 |----------|----------|------|
 | `admin` | `admin123` | Superuser (staff dashboard access) |
 | `rathan` | `rathan123` | Customer (5 orders) |
-| `priya` | `priya123` | Customer (3 orders) |
+| `dewa` | `dewa123` | Customer (3 orders) |
 | `arjun` | `arjun123` | Customer (2 orders) |
 | `fraud_test` | `fraud123` | Customer (5 orders, high refund ratio — for fraud testing) |
 
