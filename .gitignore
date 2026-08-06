@@ -60,3 +60,6 @@ chroma_db/
 # Collected static (collectstatic output)
 static/
 staticfiles/
+
+# Locust stress test reports
+stress_report.html
