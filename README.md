@@ -28,6 +28,147 @@ A staff-only dashboard shows real-time agent activity via **Server-Sent Events (
 
 ---
 
+## 🗄 Data Model (ER Diagram)
+
+Two apps (`orders`, `support`) share Django's built-in `User` model. No M2M/O2O fields — every relationship is a one-to-many foreign key.
+
+```mermaid
+erDiagram
+    USER ||--o{ ORDER : places
+    USER ||--o{ REFUNDREQUEST : submits
+    USER ||--o{ CONVERSATION : starts
+    PRODUCT ||--o{ ORDER : "ordered as"
+    ORDER ||--o{ REFUNDREQUEST : "refunded via"
+    ORDER ||--o{ CONVERSATION : "discussed in"
+    CONVERSATION ||--o{ MESSAGE : contains
+    CONVERSATION ||--o{ AGENTLOG : logs
+
+    USER {
+        int id PK
+        string username
+        string email
+        string password
+        bool is_staff
+        bool is_superuser
+    }
+    PRODUCT {
+        int id PK
+        string name
+        text description
+        decimal price
+        string category
+        bool in_stock
+    }
+    ORDER {
+        int id PK
+        int user_id FK
+        int product_id FK "nullable, SET_NULL"
+        string product_name
+        decimal amount
+        string status "pending/dispatched/delivered/cancelled"
+        string carrier
+        string tracking_number
+        text delivery
+        datetime created_at
+        datetime updated_at
+    }
+    REFUNDREQUEST {
+        int id PK
+        int order_id FK
+        int user_id FK
+        text reason
+        string status "pending/approved/denied"
+        datetime created_at
+    }
+    CONVERSATION {
+        int id PK
+        int user_id FK
+        int order_id FK
+        datetime created_at
+    }
+    MESSAGE {
+        int id PK
+        int conversation_id FK
+        string role "user/assistant"
+        text content
+        datetime created_at
+    }
+    AGENTLOG {
+        int id PK
+        int conversation_id FK
+        string event_type "support/tool_call/tool_result/manager/risk/final"
+        text message
+        datetime created_at
+    }
+```
+
+---
+
+## 🔄 Data Flow Diagram (DFD)
+
+Level-1 view of how a chat message moves through auth, storage, the three-agent chain, RAG, and the live SSE dashboard.
+
+```mermaid
+flowchart TD
+    Customer([👤 Customer])
+    Staff([🛡 Staff / Admin])
+    LLM[/DeepSeek LLM API/]
+
+    P1(("1.0 Login / Auth"))
+    P2(("2.0 View Orders /\nOrder Detail"))
+    P3(("3.0 Chat Handler\nsupport.views.chat"))
+    P4(("4.0 Support Agent\n(Maya)"))
+    P5(("5.0 Manager Agent\n(escalation)"))
+    P6(("6.0 Risk Agent\n(fraud check)"))
+    P7(("7.0 RAG Knowledge\nSearch"))
+    P8(("8.0 SSE Event\nStreaming"))
+    P9(("9.0 Staff Dashboard /\nConversation View"))
+
+    DS1[("MySQL:\nUser, Product, Order,\nRefundRequest")]
+    DS2[("MySQL:\nConversation, Message,\nAgentLog")]
+    DS3[("ChromaDB\nVector Store")]
+    DS4[("In-Memory\nEvent Queue")]
+
+    Customer -->|credentials| P1
+    P1 -->|verify| DS1
+    P1 -->|session cookie| Customer
+
+    Customer -->|GET /orders/| P2
+    P2 -->|read Order, RefundRequest| DS1
+    P2 -->|read Conversation, Message| DS2
+    P2 -->|rendered page| Customer
+
+    Customer -->|POST message| P3
+    P3 -->|get_or_create Conversation,\nsave user Message| DS2
+    P3 -->|publish event| DS4
+    P3 -->|invoke| P4
+
+    P4 -->|read Order / RefundRequest| DS1
+    P4 -->|search query| P7
+    P7 -->|similarity search| DS3
+    P4 <-->|prompt / completion| LLM
+    P4 -->|escalate_to_manager| P5
+    P5 <-->|prompt / completion| LLM
+    P5 -->|assess_fraud_risk| P6
+    P6 -->|read Order/RefundRequest\naggregates| DS1
+    P6 <-->|prompt / completion| LLM
+    P6 -->|risk verdict| P5
+    P5 -->|decision| P4
+
+    P4 -->|save AgentLog rows,\nassistant Message| DS2
+    P4 -->|publish tool/agent events| DS4
+    P4 -->|JSON reply| Customer
+
+    DS4 -->|stream| P8
+    P8 -->|SSE: data events| Staff
+
+    Staff -->|GET /dashboard/| P9
+    P9 -->|read Conversation, Message,\nAgentLog| DS2
+    P9 -->|rendered page| Staff
+```
+
+---
+
 ## 🛠 Tech Stack
 
 | Layer | Technology |
