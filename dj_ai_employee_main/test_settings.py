@@ -20,3 +20,6 @@ DEBUG = False
 # Fake API key for tests — never hit real DeepSeek
 DEEPSEEK_API_KEY = 'sk-test-fake-key'
 DEEPSEEK_MODEL = 'deepseek-chat'
+
+# Run Celery tasks synchronously in tests
+CELERY_TASK_ALWAYS_EAGER = True

@@ -1,0 +1,16 @@
+# docker-compose.override.yml — development overrides (auto-loaded by Compose)
+services:
+  app:
+    environment:
+      - DJANGO_DEBUG=True
+    volumes:
+      - .:/app  # Live code reload
+    command: uvicorn dj_ai_employee_main.asgi:application --host 0.0.0.0 --port 8000 --reload
+
+  postgres:
+    ports:
+      - "5432:5432"  # Expose to host for DB tools
+
+  redis:
+    ports:
+      - "6379:6379"  # Expose to host for redis-cli

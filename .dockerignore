@@ -1,0 +1,24 @@
+# .dockerignore — exclude from Docker build context
+env/
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.gitignore
+.vscode/
+.idea/
+chroma_db/
+htmlcov/
+.coverage
+pytest.ini
+conftest.py
+stress_report.html
+test_claude.py
+.env
+.env.local
+*.log
+README.md
+PRDs/
+rules/

@@ -1,0 +1,139 @@
+# docker-compose.yml — full stack for CoolBreeze AC
+version: "3.9"
+
+services:
+  # ── PostgreSQL ──
+  postgres:
+    image: pgvector/pgvector:pg16  # PostgreSQL 16 + pgvector extension
+    container_name: coolbreeze-postgres
+    environment:
+      POSTGRES_DB: coolbreeze
+      POSTGRES_USER: coolbreeze
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-coolbreeze}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql  # Seed data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coolbreeze"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ──
+  redis:
+    image: redis:7-alpine
+    container_name: coolbreeze-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── Django (ASGI) ──
+  app:
+    build: .
+    container_name: coolbreeze-app
+    command: uvicorn dj_ai_employee_main.asgi:application --host 0.0.0.0 --port 8000 --workers 4
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgres://coolbreeze:${DB_PASSWORD:-coolbreeze}@postgres:5432/coolbreeze
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - DJANGO_DEBUG=False
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - chroma_data:/app/chroma_db
+      - ./media:/app/media
+    restart: unless-stopped
+
+  # ── Celery Worker ──
+  worker:
+    build: .
+    container_name: coolbreeze-worker
+    command: celery -A dj_ai_employee_main worker --loglevel=info --concurrency=4
+    environment:
+      - DATABASE_URL=postgres://coolbreeze:${DB_PASSWORD:-coolbreeze}@postgres:5432/coolbreeze
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Celery Beat ──
+  beat:
+    build: .
+    container_name: coolbreeze-beat
+    command: celery -A dj_ai_employee_main beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgres://coolbreeze:${DB_PASSWORD:-coolbreeze}@postgres:5432/coolbreeze
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── vLLM (GPU profile — only starts with --profile gpu) ──
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: coolbreeze-vllm
+    command: --model Qwen/Qwen2.5-7B-Instruct --port 8001 --max-model-len 8192
+    ports:
+      - "8001:8001"
+    environment:
+      - HF_HOME=/model-cache
+    volumes:
+      - model_cache:/model-cache
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    profiles:
+      - gpu
+    restart: unless-stopped
+
+  # ── Ollama (dev profile — lightweight local LLM, no GPU needed) ──
+  ollama:
+    image: ollama/ollama:latest
+    container_name: coolbreeze-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    profiles:
+      - dev
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  chroma_data:
+  model_cache:
+  ollama_data:
