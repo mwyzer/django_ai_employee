@@ -31,7 +31,10 @@ RUN groupadd -r coolbreeze && useradd -r -g coolbreeze coolbreeze
 COPY --from=builder /root/.local /home/coolbreeze/.local
 COPY . .
 
-# Ensure scripts in .local are usable
+# Ensure scripts in .local are usable, and point HOME at coolbreeze's
+# .local so Python resolves user site-packages there even while still
+# running as root (needed for collectstatic below, which runs pre-USER-switch)
+ENV HOME=/home/coolbreeze
 ENV PATH=/home/coolbreeze/.local/bin:$PATH
 
 # Collect static files
