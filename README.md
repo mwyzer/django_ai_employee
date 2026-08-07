@@ -104,9 +104,41 @@ erDiagram
 
 ---
 
+## 🧭 Status & Enum Glossary
+
+| Field | Values |
+|-------|--------|
+| `Order.status` | `pending` · `dispatched` · `delivered` · `cancelled` |
+| `RefundRequest.status` | `pending` · `approved` · `denied` |
+| `Message.role` | `user` · `assistant` |
+| `AgentLog.event_type` | `support` · `tool_call` · `tool_result` · `manager` · `risk` · `final` |
+
+---
+
 ## 🔄 Data Flow Diagram (DFD)
 
-Level-1 view of how a chat message moves through auth, storage, the three-agent chain, RAG, and the live SSE dashboard.
+### Level 0 — Context Diagram
+
+The whole system as one process, its two human actors, and the one external service it depends on.
+
+```mermaid
+flowchart LR
+    Customer([👤 Customer])
+    Staff([🛡 Staff / Admin])
+    LLM[/DeepSeek LLM API/]
+    Sys(("0.0\nAI Employees\nSystem"))
+    Store[(MySQL +\nChromaDB)]
+
+    Customer -->|"login · browse orders\nsend chat message"| Sys
+    Sys -->|"order status · chat replies\nlive dashboard (SSE)"| Staff
+    Staff -->|"monitor conversations"| Sys
+    Sys <-->|"prompts / completions"| LLM
+    Sys <-->|"read / write"| Store
+```
+
+### Level 1
+
+View of how a chat message moves through auth, storage, the three-agent chain, RAG, and the live SSE dashboard.
 
 ```mermaid
 flowchart TD
@@ -165,6 +197,107 @@ flowchart TD
     Staff -->|GET /dashboard/| P9
     P9 -->|read Conversation, Message,\nAgentLog| DS2
     P9 -->|rendered page| Staff
+```
+
+---
+
+## 🔀 Sequence Diagram — Chat & Escalation
+
+One `POST /support/chat/<order_id>/` call, traced through Maya's tool calls and the conditional manager → risk escalation. Both branches only fire when Maya (or the Manager) decides they're needed — most messages never leave the first lane.
+
+```mermaid
+sequenceDiagram
+    actor C as Customer
+    participant V as chat view
+    participant Maya as Support Agent
+    participant Mgr as Manager Agent
+    participant Risk as Risk Agent
+    participant LLM as DeepSeek API
+    participant DB as MySQL
+    participant RAG as ChromaDB
+    participant Q as Event Queue
+
+    C->>V: POST /support/chat/<id>/ {message}
+    V->>DB: get_or_create Conversation, save user Message
+    V->>Q: publish("user_message")
+    V->>Maya: run_support_agent_langchain()
+
+    Maya->>LLM: prompt + tool schema
+    LLM-->>Maya: tool_call(get_order_details / search_knowledge_base)
+    Maya->>DB: read Order / RefundRequest
+    Maya->>RAG: similarity search
+    RAG-->>Maya: relevant chunks
+    Maya->>Q: publish("tool_call" / "tool_result")
+
+    opt Maya escalates the case
+        Maya->>Mgr: escalate_to_manager()
+        Mgr->>LLM: prompt (refund decision)
+        Mgr->>Q: publish("manager")
+        opt Manager needs a fraud check
+            Mgr->>Risk: assess_fraud_risk()
+            Risk->>DB: read Order/RefundRequest aggregates
+            Risk->>LLM: prompt (risk scoring)
+            LLM-->>Risk: risk verdict
+            Risk->>Q: publish("risk")
+            Risk-->>Mgr: verdict
+        end
+        Mgr-->>Maya: approve / deny decision
+    end
+
+    LLM-->>Maya: final reply text
+    Maya->>DB: save AgentLog rows + assistant Message
+    Maya->>Q: publish("final")
+    Maya-->>V: reply
+    V-->>C: 200 JSON {reply}
+    Q-->>C: (staff only) SSE stream to live dashboard
+```
+
+---
+
+## 🧩 Component / Deployment Diagram
+
+One Gunicorn process on Railway, one MySQL instance, one ChromaDB directory on local disk, one outbound dependency on DeepSeek. Nothing here is horizontally scaled — the in-memory event queue is the reason the Procfile stays at a single worker.
+
+```mermaid
+flowchart TB
+    subgraph Client["Browser"]
+        Cust["Customer UI\norders, chat"]
+        StaffUI["Staff dashboard\nSSE live view"]
+    end
+
+    subgraph Railway["Railway — Gunicorn (1 worker, 4 threads) + WhiteNoise"]
+        subgraph DjangoApp["Django project — dj_ai_employee_main"]
+            Orders["orders app\nviews · admin · models"]
+            Support["support app\nviews · admin · models"]
+            Agents["langchain_agents.py\nMaya / Manager / Risk"]
+            Tools["tools.py\norder · delivery · refund · KB lookups"]
+            RAGmod["rag.py\nChromaDB client"]
+            EQ["event_queue.py\nin-process queue.Queue pub/sub"]
+        end
+    end
+
+    subgraph DataTier["Data tier"]
+        MySQL[(MySQL 8\nUser · Product · Order · RefundRequest\nConversation · Message · AgentLog)]
+        Chroma[(ChromaDB\n./chroma_db — coolbreeze_docs\nseeded from support/documents/*.pdf)]
+    end
+
+    DeepSeek[/DeepSeek API\napi.deepseek.com/v1\nOpenAI-compatible/]
+
+    Cust -->|HTTPS| Orders
+    Cust -->|HTTPS POST /support/chat/| Support
+    StaffUI -->|HTTPS GET /support/dashboard/| Support
+    StaffUI <-->|SSE stream| EQ
+
+    Support --> Agents
+    Agents --> Tools
+    Tools --> RAGmod
+    Agents -->|publish events| EQ
+
+    Orders <--> MySQL
+    Support <--> MySQL
+    Tools <--> MySQL
+    RAGmod <--> Chroma
+    Agents <-->|chat/completions| DeepSeek
 ```
 
 ---
@@ -278,10 +411,10 @@ Open http://127.0.0.1:8000/login/
 | Username | Password | Role |
 |----------|----------|------|
 | `admin` | `admin123` | Superuser (staff dashboard access) |
-| `sheila` | `sheila123` | Customer (5 orders) |
-| `dewa` | `dewa123` | Customer (3 orders) |
-| `arjun` | `arjun123` | Customer (2 orders) |
-| `fraud_test` | `fraud123` | Customer (5 orders, high refund ratio — for fraud testing) |
+| `rathan` | `rathan123` | Customer |
+| `priya` | `priya123` | Customer |
+| `arjun` | `arjun123` | Customer |
+| `fraud_test` | `fraud123` | Customer (high refund ratio — for fraud testing) |
 
 ---
 

@@ -1,1 +1,1 @@
-web: gunicorn dj_ai_employee_main.wsgi --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 300
+web: gunicorn dj_ai_employee_main.wsgi --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 300 --worker-tmp-dir /dev/shm --max-requests 1000 --max-requests-jitter 50
