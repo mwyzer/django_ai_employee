@@ -891,10 +891,10 @@ python manage.py test
 
 | Username | Password | Role |
 |----------|----------|------|
-| `admin` | `admin123` | Superuser (staff dashboard access) |
-| `rathan` | `rathan123` | Customer |
-| `priya` | `priya123` | Customer |
-| `arjun` | `arjun123` | Customer |
+| `djangoadmin` | `admin123` | Superuser (staff dashboard access) |
+| `sheila` | `sheila123` | Customer |
+| `dewa` | `dewa123` | Customer |
+| `noah` | `noah123` | Customer |
 | `fraud_test` | `fraud123` | Customer (high refund ratio — for fraud testing) |
 
 ---
